@@ -1,0 +1,143 @@
+\documentclass{article}
+
+\usepackage[english]{babel}
+\usepackage[a4paper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+\usepackage[backend=biber, sorting=nyt, style=authoryear-ibid]{biblatex}
+%\bibliographystyle{agsm}
+%\bibliography{references}
+%\let\cite\textcite
+\addbibresource{references.bib}
+
+\usepackage{amsmath}
+\usepackage{csquotes}
+\usepackage{graphicx}
+\graphicspath{ {figures/} }
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{parskip}
+\usepackage{multirow}
+\usepackage{fontspec}
+\usepackage{fontawesome5}
+%\newcommand{\faWindows}{\FA\symbol{"F17A}}
+%\newcommand{\faLinux}{\FA\symbol{"F17C}}
+%\newcommand{\faApple}{\FA\symbol{"F179}}
+
+
+\title{Bitcoin Forensics Literature Review}
+\author{Stuart Kingham}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Literature review.
+\end{abstract}
+
+\tableofcontents
+
+% Cite using:
+\iffalse
+1. \citetitle{Smith:2012jd}: “Article Title”
+2. \parencite{Smith:2012qr}: A citation command in parentheses: (Smith and Jones 2023).
+3. \textcite{Smith:2024jd}: For use in the flow of text: As Jones and Smith (2024) said ...
+4. \autocite{Peixoto:2023}: A citation command which automatically switches style depend- ing on location and the option setting in the package declaration (see line 12 in the LaTeX source code). In this case, it produces a citation in parentheses: (Peixoto and Naor 2023).
+\fi
+
+\section{Intro}
+
+Motivating example is given in \citetitle{Phan:2021} \autocite{Phan:2021}: ``May, 2021, Colonial Pipeline, a US oil pipeline system, that mainly carries gasoline and jet fuel to the southeastern United States suffered a ransomware \ldots Colonial Pipeline paid approximately 75 Bitcoins \ldots FBI announced that it recovered nearly \$2.3M of the stolen funds using money flow analysis and other investigative techniques.''
+
+While the FBI did not provide specific details of the recovery process in order to safeguard their methods for future investigations, the seizure warrant filed with the US District Court, Northern District of California, did provide some insights. \textit{yet to be referenced}
+
+From \textcite{Salisu:2023} ``Investigators use sophisticated data manipulation and visualization tools to identify the travel history of stolen assets. With these capabilities, chain hopping, round-tripping, and all attempts to blur transfer trails by cyber criminals become smoke screens with no effect. This paper establishes a framework for investigating financial crimes on the blockchain \ldots to trace and track criminals by authorities and security agencies''
+
+\section{Existing Frameworks}
+
+From \citetitle{Mausud:2021} \textcite{Mausud:2021} we have the following:
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{ |p{7.5cm}|p{8cm}|  }
+  \hline
+  \multicolumn{2}{|c|}{Models from Literature and Forensic Investigation Phases} \\
+  \hline
+  Model	& Phases \\
+  \hline
+
+  DFRWS [15] & Identification, Preservation, Collection, Examination, Analysis, Presentation and Decision \\
+  \hline
+  The Forensic Process Model [18] & Collection, Examination, Analysis, Reporting \\
+  \hline
+  [19] & Acquiring the Evidence, Authenticating the Evidence and Analysing the Data. \\
+  \hline
+  Abstract Digital Forensic Model (ADFM) [20] & Identification, Preparation, Approach strategy, Preservation, Collection, Examination, Analysis, Presentation, And Returning evidence \\
+  \hline
+  The Integrated Digital Investigation Process Model (IDIP) [17] & Readiness, Deployment, Physical Crime Scene Investigation, Digital Crime Scene Investigation, and Review. \\
+  \hline
+  Enhanced Digital Investigation Process [21] & Readiness, Deployment, Traceback, Dynamite, Review \\
+  \hline
+  Case-Relevance Information Investigation [22] & Survey, Extraction, Examination, Presentation of Findings \\
+  \hline
+  Computer Forensics Field Triage Process Model (CFFTPM) [23] & Planning, Triage, Usage/User Profiles, Chronology timeline, Internet and Case Specific Evidence. \\
+  \hline
+  Digital Forensic Framework [24] & Preparation, Collection and Preservation, Examination and Analysis, Presentation and Reporting and Disseminating the Case. \\
+  \hline
+  Extended model of cybercrime investigation [25] & Awareness, Authorisation, Planning, Notification, Search for and Identify, Collection, Transport, Storage, Examination, Hypothesis, Presentation, Proof/Defence, Dissemination. \\
+  \hline
+  Digital Forensic Model based on Malaysian Investigation Process [26]  & Planning, Identification, Reconnaissance, Analysis, Proof & Defence, Diffusion of Information \\
+  \hline
+  The Systematic digital forensic investigation model SRDFIM [27] & Preparation, Securing the Scene, Survey and Recognition, Documenting the Scene, Communication Shielding, Evidence Collection, Preservation, Examination, Analysis, Presentation, Result \& Review \\
+  \hline
+  The systematic digital forensic investigation model (SRDHM) [28] & Preparation, Interaction, Reconstruction, Presentation \\
+  \hline
+  Integrated Digital Forensic Process Model (IDFPM) [21] & Preparation, Incident, Incident Response, Digital Forensic Investigation and Presentation. \\
+  \hline
+\end{tabular}
+\label{table: ModelsFromLiterature}
+\end{table}
+
+\pagebreak
+
+Also look at \cite{Zollner:2019}, \cite{Holub:2018} \cite{Young:2021}.
+
+\section{Tracking Methodologies}
+
+From \citetitle{Tironsakkul:2022} \autocite{Tironsakkul:2022} we find the following methods.
+
+\subsection{Context-based Bitcoin Tracking}
+
+Context-based tracking typically builds up graphs of transaction or bitcoin movements from the blockchain and other external sources.
+
+\begin{enumerate}
+\item \textbf{Address Profiling}: information that can indicate the entities behind pseudonymous addresses and the type of such entities
+\item \textbf{Transaction Profiling}: to analyse the movement of stolen Bitcoins, identification or method to indicate the purpose of the transactions
+\item \textbf{Dirty-First Taint Analysis Strategy}: strategy stops tracking tainted Bitcoin outputs if there are clean Bitcoins in transaction input
+\item \textbf{Taint-In, Highest-Out  Taint Analysis Strategy}
+\item \textbf{Tracking Evaluation Metrics}: development of metrics to characterise transactions for the purpose of tracking.
+  
+\end{enumerate}
+
+
+\subsection{Zero-taint Bitcoin Tracking}
+
+\begin{enumerate}
+\item \textbf{Address Taint Analysis}: uses assumption that receiver and delivery addresses within the centralised mixer services are both likely to interact with the central addresses at some point in time
+\item \textbf{Backward Address Taint Analysis}
+\item \textbf{Filtering Criteria}
+\end{enumerate}
+
+\section{Inmemory Techniques}
+
+\citetitle{Vanderhorst:2017}: \cite{Vanderhorst:2017}
+
+\section{Figures}
+
+%includegraphics[scale=0.4]{ms_hardware_interfaces.png}
+
+\printbibliography
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
