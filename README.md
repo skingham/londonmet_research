@@ -4,10 +4,9 @@
 
 Inital Bitcoin Blockchain setup details were cadged from: 
 
-* [Bitcoin devtool's README.md](https://github.com/bitcoin/bitcoin/blob/master/contrib/devtools/README.md); 
+* [Bitcoin devtool's README.md](https://github.com/bitcoin/bitcoin/blob/master/contrib/devtools/README.md);
 
-* [Ruan Bekker's Ultimate Guide to Bitcoin Testnet Fullnode Setup](]
-]]]]]]]]); and 
+* [Ruan Bekker's Ultimate Guide to Bitcoin Testnet Fullnode Setup](https://ruanbekker.hashnode.dev/ultimate-guide-to-bitcoin-testnet-fullnode-setup-in-linux); and
 
 * [System Glitch's Tutorial for bitcoin regtest](https://gist.github.com/System-Glitch/cb4e87bf1ae3fec9925725bb3ebe223a).
 
@@ -103,7 +102,7 @@ By default, the bitcoin daemon will look for the config in `bitcoin.conf` in the
 
 The data directory, for Linux systems, is `${HOME}/.bitcoin`.
 
-#### Create RPC auth and passwords:
+#### Create RPC auth and passwords
 
 Set `BITCOIN_RPC_PASSWORD` and `BITCOIN_RPC_AUTH` to the results of `rcpauth.py`:
 
@@ -130,7 +129,6 @@ rpcallowip=127.0.0.1
 rpcuser=${BITCOIN_RPC_USER:-bitcoin}
 rpcpassword=${BITCOIN_RPC_PASSWORD:-$(openssl rand -hex 24)}
 rpcauth=${BITCOIN_RPC_USER:-bitcoin}:${BITCOIN_RPC_AUTH:-$(openssl rand -hex 16)'$'$(openssl rand -hex 32)}
-${NODE2_IP}addnode=${NODE2_IP}192.168.56.102:18444
 `if [ -z "${NODE2_IP}" ]; then echo "# addnode" ; else echo "addnode=${NODE2_IP}:18444" ; fi`
 regnet=1
 [regtest]
@@ -142,15 +140,15 @@ EOF
 Move file into place, linking our data directory to the default location:
 
 ```sh
-sudo mv bitcoin.conf.tmp $BITCOIN_DATA_DIR/bitcoin.conf
-sudo chown bitcoin:bitcoin $BITCOIN_DATA_DIR/bitcoin.conf
-sudo chown -R bitcoin $BITCOIN_DATA_DIR
-sudo ln -sfn $BITCOIN_DATA_DIR /home/bitcoin/.bitcoin
-sudo chown -h bitcoin:bitcoin /home/bitcoin
+sudo mkdir -p /home/bitcoin/.bitcoin
+sudo mv bitcoin.conf.tmp /home/bitcoin/.bitcoin/bitcoin.conf
+sudo ln -sfn /home/bitcoin/.bitcoin/bitcoin.conf ${BITCOIN_DATA_DIR}/bitcoin.conf
 sudo chown -R bitcoin:bitcoin /home/bitcoin
+sudo chown -h bitcoin:bitcoin ${BITCOIN_DATA_DIR}/bitcoin.conf
+sudo chown -R bitcoin:bitcoin ${BITCOIN_DATA_DIR}
 ```
 
-#### Create the systemd unit-file for bitcoind:
+#### Create the systemd unit-file for bitcoind
 
 ```sh
 cat > bitcoind.service << EOF
@@ -162,7 +160,7 @@ User=bitcoin
 Group=bitcoin
 WorkingDirectory=${BITCOIN_DATA_DIR}
 Type=simple
-ExecStart=/opt/bitcoin/current/bin/bitcoind -conf=$BITCOIN_DATA_DIR/bitcoin.conf
+ExecStart=/opt/bitcoin/current/bin/bitcoind -conf=${BITCOIN_DATA_DIR}/bitcoin.conf
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -174,7 +172,7 @@ Move the systemd unit files into place:
 sudo mv bitcoind.service /etc/systemd/system/bitcoind.service
 sudo systemctl daemon-reload
 sudo systemctl enable bitcoind
-sudo systemctl start bitcoind
+sudo systemctl status bitcoind
 ```
 
 Update profile of `bitcoin` user to have the bitcoin core bin in their path.
@@ -183,6 +181,24 @@ Update profile of `bitcoin` user to have the bitcoin core bin in their path.
 sudo su - bitcoin
 echo '[[ -d /opt/bitcoin/current/bin && ":$PATH:" != *":/opt/bitcoin/current/bin:"* ]] && PATH=/opt/bitcoin/current/bin:$PATH' >> ${HOME}/.profile
 exit
+```
+
+Start the bitcoind daemon:
+
+```sh
+sudo systemctl start bitcoind
+```
+
+### Clear Data and Start Fresh Genisis Block
+
+Just blast the data directory and recreate:
+
+```sh
+sudo rm -rf ${BITCOIN_DATA_DIR}
+sudo mkdir -p ${BITCOIN_DATA_DIR}
+sudo ln -sfn /home/bitcoin/.bitcoin/bitcoin.conf ${BITCOIN_DATA_DIR}/bitcoin.conf
+sudo chown -h bitcoin:bitcoin ${BITCOIN_DATA_DIR}/bitcoin.conf
+sudo chown -R bitcoin:bitcoin ${BITCOIN_DATA_DIR}
 ```
 
 ### Install Bitcoin Core & Developer
@@ -200,8 +216,35 @@ cd bitcoin/contrib/devtools
 gen-bitcoin-conf.sh
 ```
 
+#### Wireshark
 
+On each Ubuntu VM:
+
+* Add the stable official PPA and install wireshark:
+
+```sh
+sudo add-apt-repository ppa:wireshark-dev/stable
+sudo apt-get update
+sudo apt-get install wireshark
 ```
+
+* Run wireshark and answer 'yes' to the allowing non-root users to capture packers: 
+
+```sh
+sudo wireshark
+```
+
+* Add the user to the wireshark group: 
+
+```sh
+sudo adduser $USER wireshark`
+```
+
+* If there are file permissions problems, `sudo dpkg-reconfigure wireshark-common` may be needed.
+
+## Transactions
+
+```json
 bc-regnet@bitcoin-regnet:/tmp$ bitcoin-cli createwallet "testwallet"
 {
   "name": "testwallet"
@@ -211,28 +254,4 @@ bc-regnet@bitcoin-regnet:/tmp$ bitcoin-cli getnewaddress
 bc1q376fg348dzuzeysl2p7qfjyaghm8cgdlwvlt2h
 ```
 
-
 ### Forensic Setup
-
-#### Wireshark
-
-On each Ubuntu VM:
-
-* Add the stable official PPA and install wireshark:
-   ```sh
-   sudo add-apt-repository ppa:wireshark-dev/stable
-   sudo apt-get update
-   sudo apt-get install wireshark
-   ```
-
-* Run wireshark and answer 'yes' to the allowing non-root users to capture packers: 
-   ```sh
-   sudo wireshark
-   ```
-
-* Add the user to the wireshark group: 
-   ```sh
-   sudo adduser $USER wireshark`
-   ```
-
- * If there are file permissions problems, `sudo dpkg-reconfigure wireshark-common` may be needed.
