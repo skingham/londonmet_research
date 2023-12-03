@@ -18,23 +18,23 @@ We will use two VMs to create a bitcoin development environment and a Regtest en
 
 2. Create VM images, using `Ubuntu Server (minimised)`, installing OpenSSH on both using:
 
-   * Machine name `bitcoin-devel` and user `bc-devel`; this will have bitcoin source and
+   * Machine name `bitcoin-regnet` and user `bc-regnet` as our our base image for investigations.
 
-   * Machine name `bitcoin-regnet` and user `bc-regnet`; this will be our base image for investigations.
+   * Machine name `bitcoin-devel` and user `bc-devel` as or this will have bitcoin source and
 
 3. Set up the network cards.  
 
    * For installation and connection to internet for install, both machines need the VM's network settings set-up to NAT addressing.  Enabling port forwarding to guest port 22 to `ssh` into the machines from the host.  Set the host port to
   
-   ** VBox 6: Set a SSH to to map from host port 127.0.0.1:2522 to the guest 10.0.2.15:22.  
+     * VBox 6: Set a SSH to to map from host port 127.0.0.1:2522 to the guest 10.0.2.15:22.  
    
-   *** Guest IP can be discovered with command `VBoxManage guestproperty get "bitcoin-regnet" "/VirtualBox/GuestInfo/Net/0/V4/IP" `
+        * Guest IP can be discovered with command `VBoxManage guestproperty get "bitcoin-regnet" "/VirtualBox/GuestInfo/Net/0/V4/IP" `
   
-   ** VBox 7: Set a SSH rule to just map host port 2522 to guest port 22. VBox will then map from the host IP address specified in the 'Host Network Manager' host only network address (default IP address is `192.168.56.1`).
+     * VBox 7: Set a SSH rule to just map host port 2522 to guest port 22. VBox will then map from the host IP address specified in the 'Host Network Manager' host only network address (default IP address is `192.168.56.1`).
 
    * For communicating between the two VMs for running scenarios, setup a second adapter using 'Host Only'.  Ensure that a host-only network is configured within VBox.
 
-   ** The default host IP address for this adapter is 192.168.56.1 and 192.168.56.100 is the DHCP server on the Host-only network.  Within each machine, bring up the second adapter interface (check the name of the second interface with `ip addr show`):
+      * The default host IP address for this adapter is 192.168.56.1 and 192.168.56.100 is the DHCP server on the Host-only network.  Within each machine, bring up the second adapter interface (check the name of the second interface with `ip addr show`):
 
    ```sh
    sudo ip addr show
@@ -45,7 +45,7 @@ We will use two VMs to create a bitcoin development environment and a Regtest en
 
 5. Test `ssh` works:
 
-   * from the host machine, connecting to the either the local loopback address `127.0.0.1:2522` or the VirtualBox host-only adapter `192.168.56.1:22`.
+   * From the host machine, connecting to the either the local loopback address `127.0.0.1:2522` or the VirtualBox host-only adapter `192.168.56.1:22`.
 
    ```sh
    ssh -p 2522 -l bc-regnet 192.168.56.1
@@ -89,18 +89,36 @@ sha256sum bitcoin-${BITCOIN_VERSION}-${ARCH}-linux-gnu.tar.gz
 
 ```sh
 sudo mkdir -p /opt/bitcoin/${BITCOIN_VERSION}
-sudo mkdir -p ${BITCOIN_DATA_DIR}
 sudo tar -xzvf bitcoin-${BITCOIN_VERSION}-${ARCH}-linux-gnu.tar.gz -C /opt/bitcoin/${BITCOIN_VERSION} --strip-components=1 --exclude=*-qt
 sudo ln -s /opt/bitcoin/${BITCOIN_VERSION} /opt/bitcoin/current
-sudo rm -rf /tmp/*
+sudo mkdir -p ${BITCOIN_DATA_DIR}
 sudo chown -R bitcoin:bitcoin ${BITCOIN_DATA_DIR}
+sudo rm -rf /tmp/*
 ```
 
 ### Create a bitcoin.conf file
 
 By default, the bitcoin daemon will look for the config in `bitcoin.conf` in the data directory and may be changed using the `-datadir` and `-conf` command-line options.  
 
-The data directory, for Linux systems, is `${HOME}/.bitcoin`.
+The default data directory, for Linux systems, is `${HOME}/.bitcoin`.  We will set the data directory location in the config file, and set the config file to be in `${HOME}/.bitcoin/bitcoin.conf` and the data directory to be the above `${BITCOIN_DATA_DIR}`.
+
+#### Default Ports for Bitcoin Environments
+
+We are setting up a _regtest_ environment and will set ports expicitly to the defaults below:
+
+| Var/Environment    | Live       | testnet     | signet      | regtest     |
+|--------------------|------------|-------------|-------------|-------------|
+| Listen on: bind=   | 8334=onion | 18334=onion | 38334=onion | 18445=onion |
+| Connection: port=  | 8333       | 18333       | 38333       | 18444       |
+| JSON-RPC: rpcport= | 8332       | 18332       | 38332       | 18443       |
+
+#### Additional Nodes
+
+The second machine needs to know the address of the first.  Set 'NODE2_IP' when creating the config on the second VM.
+
+```sh
+NODE2_IP=192.168.56.10x
+```
 
 #### Create RPC auth and passwords
 
@@ -109,42 +127,74 @@ Set `BITCOIN_RPC_PASSWORD` and `BITCOIN_RPC_AUTH` to the results of `rcpauth.py`
 ```sh
 cd /tmp
 wget https://raw.githubusercontent.com/bitcoin/bitcoin/master/share/rpcauth/rpcauth.py
-BITCOIN_RPC_USER=bitcoin
-python3 rpcauth.py ${BITCOIN_RPC_USER}
+$(python3 rpcauth.py bitcoin \
+ | awk -F= '\
+      /String/ {} \
+      /rpcauth/ { split($2,vals,":") ; printf "export %s=%s export %s=%s ", "BITCOIN_RPC_USER", vals[1], "BITCOIN_RPC_AUTH", vals[2] } \
+      /Your/ {} \
+      ENDFILE { printf "export %s=%s ", "BITCOIN_RPC_PASSWORD", $0 }')
 ```
 
 The variables should look like:
+
+* `BITCOIN_RPC_USER=bitcoin`
 
 * `BITCOIN_RPC_AUTH='0dd2730e0a234604e9dfc57e572c12c8$3f4dd55976016630e21eace2a651d008d50c4c47b493f6a15bb28eedc8e67d2c'`
 
 * `BITCOIN_RPC_PASSWORD='00IaRY3jU_AabvucNFvL6MdFkjMZJTbc3V934pZddTc'`
 
-* Set `NODE2_IP=192.168.56.102` or `NODE2_IP=192.168.56.101`
+To set the three environments variables from a previously generated config file:
+
+```sh
+unset BITCOIN_RPC_USER BITCOIN_RPC_AUTH BITCOIN_RPC_PASSWORD
+$(sudo cat /home/bitcoin/.bitcoin/bitcoin.conf \
+ | awk -F= '\
+      /rpcauth/ { split($2,vals,":") ; printf "export %s=%s export %s=%s ", "BITCOIN_RPC_USER", vals[1], "BITCOIN_RPC_AUTH", vals[2] } \
+      /rpcpassword/ { printf "export %s=%s ", "BITCOIN_RPC_PASSWORD", $2 } \
+      /addnode/ { split($2,vals,":") ; printf "export %s=%s ", "NODE2_IP", vals[1] }')
+```
+
+#### Generate a new config file
+
+* __`regtest`__ must be set to 1
+
+* __`fallbackfee`__
+
+* To allow remote devices to connection, set __`rpcallowip`__`=192.168.56.0/24` __`rpcbind`__`=0.0.0.0`.  More secure is `rpcallowip=192.168.56.rmt` `rpcbind=192.168.56.btc`, or `rcpallowip=127.0.0.1` & `rpcbind=127.0.0.1` if no connection from external devices is needed.
+
 
 ```sh
 cat > bitcoin.conf.tmp << EOF
 datadir=${BITCOIN_DATA_DIR}
+fallbackfee=0.00001
 printtoconsole=1
-rpcallowip=127.0.0.1
-rpcuser=${BITCOIN_RPC_USER:-bitcoin}
-rpcpassword=${BITCOIN_RPC_PASSWORD:-$(openssl rand -hex 24)}
+# rpcuser=${BITCOIN_RPC_USER:-bitcoin}
+# rpcpassword=${BITCOIN_RPC_PASSWORD:-$(openssl rand -hex 24)}
 rpcauth=${BITCOIN_RPC_USER:-bitcoin}:${BITCOIN_RPC_AUTH:-$(openssl rand -hex 16)'$'$(openssl rand -hex 32)}
-`if [ -z "${NODE2_IP}" ]; then echo "# addnode" ; else echo "addnode=${NODE2_IP}:18444" ; fi`
-regnet=1
+regtest=1
 [regtest]
-rpcbind=127.0.0.1
-rpcport=8332
+rpcallowip=192.168.56.0/24
+rpcbind=0.0.0.0
+rpcport=18443
+$(if [ -z "${NODE2_IP}" ]; then echo "# addnode" ; else echo "addnode=${NODE2_IP}:18444" ; fi)
 EOF
 ```
 
 Move file into place, linking our data directory to the default location:
 
 ```sh
-sudo mkdir -p /home/bitcoin/.bitcoin
-sudo mv bitcoin.conf.tmp /home/bitcoin/.bitcoin/bitcoin.conf
+sudo sudo mkdir -p /home/bitcoin/.bitcoin
+sudo mv /tmp/bitcoin.conf.tmp /home/bitcoin/.bitcoin/bitcoin.conf
+sudo chmod 644 /home/bitcoin/.bitcoin/bitcoin.conf
+sudo chown bitcoin:bitcoin /home/bitcoin/.bitcoin/bitcoin.conf
+sudo chmod 744 /home/bitcoin/.bitcoin
+sudo chown -R bitcoin:bitcoin /home/bitcoin/.bitcoin
+```
+
+Link into the data directory:
+
+```sh
 sudo ln -sfn /home/bitcoin/.bitcoin/bitcoin.conf ${BITCOIN_DATA_DIR}/bitcoin.conf
-sudo chown -R bitcoin:bitcoin /home/bitcoin
-sudo chown -h bitcoin:bitcoin ${BITCOIN_DATA_DIR}/bitcoin.conf
 sudo chown -R bitcoin:bitcoin ${BITCOIN_DATA_DIR}
 ```
 
@@ -183,22 +233,17 @@ echo '[[ -d /opt/bitcoin/current/bin && ":$PATH:" != *":/opt/bitcoin/current/bin
 exit
 ```
 
-Start the bitcoind daemon:
-
-```sh
-sudo systemctl start bitcoind
-```
-
 ### Clear Data and Start Fresh Genisis Block
 
 Just blast the data directory and recreate:
 
 ```sh
+sudo systemctl stop bitcoind
 sudo rm -rf ${BITCOIN_DATA_DIR}
 sudo mkdir -p ${BITCOIN_DATA_DIR}
+sudo chown -R bitcoin:bitcoin ${BITCOIN_DATA_DIR}
 sudo ln -sfn /home/bitcoin/.bitcoin/bitcoin.conf ${BITCOIN_DATA_DIR}/bitcoin.conf
 sudo chown -h bitcoin:bitcoin ${BITCOIN_DATA_DIR}/bitcoin.conf
-sudo chown -R bitcoin:bitcoin ${BITCOIN_DATA_DIR}
 ```
 
 ### Install Bitcoin Core & Developer
@@ -216,7 +261,38 @@ cd bitcoin/contrib/devtools
 gen-bitcoin-conf.sh
 ```
 
-#### Wireshark
+### Start Nodes and Test
+
+### Start Daemon
+
+```sh
+sudo systemctl start bitcoind
+```
+
+#### Check nodes are connected
+
+Check if your nodes are connected.  From the second machine: 
+
+```sh
+$ sudo su - bitcoin
+$ bitcoin-cli getaddednodeinfo
+[
+  {
+    "addednode": "192.168.56.10x:18444",
+    "connected": true,
+    "addresses": [
+      {
+        "address": "192.168.56.10x:18444",
+        "connected": "outbound"
+      }
+    ]
+  }
+]
+```
+
+## Forensic Setup
+
+### Wireshark
 
 On each Ubuntu VM:
 
@@ -242,16 +318,162 @@ sudo adduser $USER wireshark`
 
 * If there are file permissions problems, `sudo dpkg-reconfigure wireshark-common` may be needed.
 
-## Transactions
+## Operations on the Blockchain
 
-```json
-bc-regnet@bitcoin-regnet:/tmp$ bitcoin-cli createwallet "testwallet"
+To check that the network is synchronised, from node 2, create a wallet, address and transaction.  
+Then check both nodes have the same block count
+
+### Create a wallet on node 2
+
+```sh
+$ bitcoin-cli createwallet "regtestwallet"
 {
-  "name": "testwallet"
+  "name": "regtestwallet"
 }
+```
 
-bc-regnet@bitcoin-regnet:/tmp$ bitcoin-cli getnewaddress
+### Create an address for new transactions:
+
+```sh
+$ REGTEST_ADDRESS=$(bitcoin-cli getnewaddress)
+$ echo $REGTEST_ADDRESS
 bc1q376fg348dzuzeysl2p7qfjyaghm8cgdlwvlt2h
 ```
 
-### Forensic Setup
+### Generate a new block
+
+```sh
+$ bitcoin-cli generatetoaddress 1 $REGTEST_ADDRESS
+[
+   "3d8c67420921deaaaf561e3b5f5d12e9f1e6ff4f7683a451ea66e1b24a5cffdb"
+]
+```
+
+### Check the block count on both nodes:
+
+```sh
+$ bitcoin-cli getblockcount
+1
+```
+
+```sh
+$ curl --user bitcoin --data-binary '{"jsonrpc": "1.0", "id": "0", "method": "getblockcount", "params": []}' -H 'content-type: text/plain;' localhost:18443/
+Enter host password for user 'bitcoin':
+{"result":1,"error":null,"id":"0"}
+```
+
+### Generate Blocks
+
+```sh
+#!/bin/bash
+
+# Script to generate a new block every minute
+# Put this script at the root of your unpacked folder
+echo "Generating a block every minute. Press [CTRL+C] to stop.."
+
+address=$(/opt/bitcoin/current/bin/bitcoin-cli getnewaddress)
+
+while :
+do
+    echo "Generate a new block `date '+%d/%m/%Y %H:%M:%S'`"
+    /opt/bitcoin/current/bin/bitcoin-cli generatetoaddress 1 $address
+    sleep 60
+done
+```
+
+### Adding nodes manually
+
+```sh
+bitcoin-cli addnode 192.168.58.101:18444
+```
+
+Let's mine some blocks and check if everything is synchronized:
+
+```sh
+bitcoin-cli generatetoaddress 25 "<your_address>"
+bitcoin-cli getblockcount # Should return 75
+bitcoin-cli -rpcport=18443 getblockcount # Should return 75 
+```
+
+### Transfer funds
+
+We got some funds from mining the first blocks. We will transfer them to our wallet on the second node.
+
+```sh
+address=$(bitcoin-cli -rpcport=18443 getnewaddress)
+bitcoin-cli sendtoaddress "$1" 10
+```
+
+### Check the funds have been received
+
+```sh
+bitcoin-cli -rpcport=18443 getwalletinfo
+```
+
+### Double spend
+
+As we only have two nodes in the network, it's easy to make a 51% attack. We're going to double spend some bitcoin.
+
+#### Get a unspent output with a non-zero output
+
+```sh
+bitcoin-cli listunspent
+```
+
+#### Create a raw transaction and sign it
+
+__Don't forget to set the amount of your vout a little bit lower than the amount of your utxo so your tx has fees__
+
+```sh
+transaction=$(bitcoin-cli createrawtransaction '[{"txid":"<TX_ID>","vout":0}]' '{"$address":12.49}')
+bitcoin-cli signrawtransactionwithwallet "$transaction"
+```
+
+Keep the generated hex of the signed transaction. We need to disconnect both nodes and broadcast the transaction from the other node.
+
+#### Disconnect nodes
+
+```sh
+bitcoin-cli disconnectnode "127.0.0.1:18444"
+bitcoin-cli -rpcport=18443 disconnectnode "127.0.0.1:18444"
+```
+
+#### Broadcast from other node
+
+```sh
+bitcoin-cli -rpcport=18443 sendrawtransaction "<HEX>"
+```
+
+To make a double spend, we need to create another transaction with the same utxo and broadcast it on the chain where the first one wasn't broadcasted.
+
+#### Generate a second address to make it easier to differenciate both transactions
+
+```sh
+address=`bitcoin-cli -rpcport=18443 getnewaddress`
+```
+
+```sh
+transaction=`bitcoin-cli createrawtransaction '[{"txid":"<TX_ID>","vout":0}]' '{"$address":12.49}'`
+bitcoin-cli signrawtransactionwithwallet "$transaction"
+bitcoin-cli sendrawtransaction "<HEX>"
+```
+
+We need to mine some blocks so when we join the two nodes, the longest chain is kept. (In our case, the one with the second transaction).
+
+```sh
+bitcoin-cli generate 50
+```
+
+#### Join
+
+```sh
+bitcoin-cli addnode "127.0.0.1:18444" add
+```
+
+Check that the first transaction doesn't exist anymore:
+
+```sh
+bitcoin-cli -rpcport=18443 listtransactions
+```
+
+The last one should have the address we used for the second transaction. The double-spend worked!
