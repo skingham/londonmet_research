@@ -25,12 +25,12 @@ We will use two VMs to create a bitcoin development environment and a Regtest en
 3. Set up the network cards.  
 
    * For installation and connection to internet for install, both machines need the VM's network settings set-up to NAT addressing.  Enabling port forwarding to guest port 22 to `ssh` into the machines from the host.  Set the host port to
+
+      * VBox 6: Set a SSH to to map from host port 127.0.0.1:2522 to the guest 10.0.2.15:22.  
+
+         * Guest IP can be discovered with command `VBoxManage guestproperty get "bitcoin-regnet" "/VirtualBox/GuestInfo/Net/0/V4/IP"`
   
-     * VBox 6: Set a SSH to to map from host port 127.0.0.1:2522 to the guest 10.0.2.15:22.  
-   
-        * Guest IP can be discovered with command `VBoxManage guestproperty get "bitcoin-regnet" "/VirtualBox/GuestInfo/Net/0/V4/IP" `
-  
-     * VBox 7: Set a SSH rule to just map host port 2522 to guest port 22. VBox will then map from the host IP address specified in the 'Host Network Manager' host only network address (default IP address is `192.168.56.1`).
+      * VBox 7: Set a SSH rule to just map host port 2522 to guest port 22. VBox will then map from the host IP address specified in the 'Host Network Manager' host only network address (default IP address is `192.168.56.1`).
 
    * For communicating between the two VMs for running scenarios, setup a second adapter using 'Host Only'.  Ensure that a host-only network is configured within VBox.
 
@@ -39,6 +39,21 @@ We will use two VMs to create a bitcoin development environment and a Regtest en
    ```sh
    sudo ip addr show
    sudo dhclient enp0s8
+   ```
+
+   ```sh
+   cat > 00-installer-config.yaml.tmp << EOF
+   network:
+     version: 2
+     ethernets:
+       enp0s3:
+         dhcp4: true
+       enp0s8:
+         dhcp4: true
+   EOF
+   sudo mv  00-installer-config.yaml.tmp /etc/netplan/00-installer-config.yaml
+   sudo chmod 644 /etc/netplan/00-installer-config.yaml
+   sudo chown root:root /etc/netplan/00-installer-config.yaml
    ```
 
 4. Test ubutu is running Openssh `sudo systemctl status ssh` and reboot the server.
@@ -310,10 +325,10 @@ sudo apt-get install wireshark
 sudo wireshark
 ```
 
-* Add the user to the wireshark group: 
+* Add the user to the wireshark group:
 
 ```sh
-sudo adduser $USER wireshark`
+sudo adduser $USER wireshark
 ```
 
 * If there are file permissions problems, `sudo dpkg-reconfigure wireshark-common` may be needed.
