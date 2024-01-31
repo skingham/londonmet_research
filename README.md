@@ -56,7 +56,7 @@ We will use two VMs to create a bitcoin development environment and a Regtest en
    sudo chown root:root /etc/netplan/00-installer-config.yaml
    ```
 
-4. Test ubutu is running Openssh `sudo systemctl status ssh` and reboot the server.
+4. Test Ubuntu is running Openssh `sudo systemctl status ssh` and reboot the server.
 
 5. Test `ssh` works:
 
